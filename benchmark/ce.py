@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-from chunk_loss_lora.ce import ChunkedCE
-from cut_cross_entropy import linear_cross_entropy
+from chunk_loss_lora.ce import ChunkedCE, LigerFusedLinearCrossEntropyFunction
 
 torch.set_default_device('cuda')
 
@@ -18,6 +17,11 @@ label = torch.randint(0, V, (B, T)).to(torch.int64)
 def f(x, label):
     logits = m(x) + m_b(m_a(x)) * r
     out = ce(logits.view(-1, V), label.view(-1))
+    out.backward()
+    return out
+
+def ligerf(x, label):
+    out = LigerFusedLinearCrossEntropyFunction.apply(x.view(-1, D), m.weight, m_a.weight, m_b.weight, r, label.view(-1))
     out.backward()
     return out
 
@@ -54,21 +58,27 @@ def bench(f, name=None, iters=100, warmup=5, display=True, profile=False, profil
     return res
 
 opt_f = torch.compile(f)
+bench(lambda: ligerf(x, label), name='liger lce')
 bench(lambda: f(x, label), name='eager (non-chunked)')
 bench(lambda: chunked_f(x, label, compiled=False), name='eager (chunked)')
 bench(lambda: opt_f(x, label), name='compile (non-chunked)')
 bench(lambda: chunked_f(x, label, compiled=True), name='compile (chunked)')
 
 """
-eager (non-chunked): 46.425ms
-Peak mem:  4.731470848
+liger lce: 128.683ms
+Peak mem:  0.567181824
 
-eager (chunked): 68.193ms
-Peak mem:  2.388297216
+eager (non-chunked): 45.930ms
+Peak mem:  4.71505408
 
-compile (non-chunked): 39.854ms
-Peak mem:  2.646541312
+eager (chunked): 133.092ms
+Peak mem:  0.600466944
 
-compile (chunked): 40.364ms
-Peak mem:  1.600300032
+compile (non-chunked): 39.164ms
+Peak mem:  2.630124544
+
+compile (chunked): 105.000ms
+Peak mem:  0.567433216
+
+Better to use compile (chunked), much more accurate
 """
