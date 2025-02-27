@@ -309,7 +309,7 @@ class ChunkedCE(torch.autograd.Function):
         grad_inputs = []
         loss_acc = torch.zeros((), device=_input.device)
 
-        chunks = _input.shape[0] // CHUNK_SIZE
+        chunks = max(_input.shape[0] // CHUNK_SIZE, 1)
         def accumulate_chunk(input_chunk, target_chunk):
             (chunk_grad_input, chunk_grad_weight_a, chunk_grad_weight_b), chunk_loss = torch.func.grad_and_value(compute_loss, argnums=(0,2,3))(
                 input_chunk, weight, weight_a, weight_b, r, target_chunk
