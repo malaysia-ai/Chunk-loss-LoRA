@@ -1,6 +1,6 @@
 # Chunk-loss-LoRA
 
-Fused kernel chunk loss to include LoRA to reduce memory.
+Fused kernel chunk loss to include LoRA to reduce memory, support DeepSpeed ZeRO3.
 
 1. Support DeepSpeed Zero3.
 3. Support PyTorch chunking Torch compile and Triton.
