@@ -71,20 +71,23 @@ bench(lambda: chunked_f(x, label, compiled=True), name='compile (chunked)')
 bench(lambda: chunked_f_module(x, label, compiled=True), name='compile (chunked module)')
 
 """
-liger lce: 128.683ms
+liger lce: 128.493ms
 Peak mem:  0.567181824
 
-eager (non-chunked): 45.930ms
+eager (non-chunked): 45.947ms
 Peak mem:  4.71505408
 
-eager (chunked): 133.092ms
+eager (chunked): 133.431ms
 Peak mem:  0.600466944
 
-compile (non-chunked): 39.164ms
+compile (non-chunked): 39.857ms
 Peak mem:  2.630124544
 
-compile (chunked): 105.000ms
+compile (chunked): 104.765ms
 Peak mem:  0.567433216
+
+compile (chunked module): 105.556ms
+Peak mem:  0.583849984
 
 Better to use compile (chunked), much more accurate
 """

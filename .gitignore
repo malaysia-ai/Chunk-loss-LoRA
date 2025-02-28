@@ -3,3 +3,4 @@ lce_benchmark.py
 *.ipynb_checkpoints
 *__pycache__
 chunk_loss_lora.egg-info
+example/test

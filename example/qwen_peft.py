@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import LoraConfig, get_peft_model
 from chunk_loss_lora.ce import ChunkedCE
-from datasets import load_dataset, Dataset
+from datasets import load_dataset
 import torch
 
 rank = 64
@@ -32,6 +32,8 @@ trainable_parameters = [param for param in model.parameters() if param.requires_
 trainer = torch.optim.AdamW(trainable_parameters, lr = 2e-5)
 
 for i in range(100):
+    trainer.zero_grad()
+    
     input_ids = tokenizer.apply_chat_template([
         {'role': 'user', 'content': data[0]['question']},
         {'role': 'assistant', 'content': data[0]['answer']}

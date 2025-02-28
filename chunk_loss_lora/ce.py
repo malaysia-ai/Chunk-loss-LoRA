@@ -6,6 +6,7 @@ import triton.language as tl
 from contextlib import nullcontext
 try:
     import deepspeed
+    from deepspeed.utils import safe_set_full_grad
 except:
     deepspeed = None
 
@@ -357,9 +358,9 @@ class ChunkedCE(torch.autograd.Function):
                 grad_inputs.append(accumulate_chunk(input_chunk, target_chunk))
             
             ctx.save_for_backward(
-                torch.cat(grad_inputs, dim=0)/chunks,
-                grad_weight_a/chunks,
-                grad_weight_b/chunks,
+                torch.cat(grad_inputs, dim=0) / chunks,
+                grad_weight_a / chunks,
+                grad_weight_b / chunks,
             )
             ctx.is_module = is_module
             ctx.is_deepspeed = is_deepspeed
@@ -373,13 +374,9 @@ class ChunkedCE(torch.autograd.Function):
         (grad_input, grad_weight_a, grad_weight_b) = ctx.saved_tensors
         if ctx.is_module:
             if ctx.is_deepspeed:
-                gather_weight_a = deepspeed.zero.GatheredParameters(ctx.m_a.weight)
-                gather_weight_b = deepspeed.zero.GatheredParameters(ctx.m_b.weight)
+                safe_set_full_grad(ctx.m_a.weight, grad_weight_a)
+                safe_set_full_grad(ctx.m_b.weight, grad_weight_b)
             else:
-                gather_weight_a = nullcontext()
-                gather_weight_b = nullcontext()
-
-            with gather_weight_a, gather_weight_b:
                 ctx.m_a.weight.grad = grad_weight_a
                 ctx.m_b.weight.grad = grad_weight_b
 
