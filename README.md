@@ -1,6 +1,6 @@
 # Chunk-loss-LoRA
 
-Chunk loss for LoRA.
+Fused kernel chunk loss to include LoRA to reduce memory.
 
 1. Support DeepSpeed Zero3.
 3. Support PyTorch chunking Torch compile and Triton.
@@ -30,3 +30,7 @@ Peak mem:  2.630124544
 compile (chunked): 105.000ms
 Peak mem:  0.567433216
 ```
+
+## Special thanks
+
+We evolve from https://gist.github.com/Chillee/22cd93e11b887db1f596ab754d60a899
