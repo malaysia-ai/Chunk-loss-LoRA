@@ -30,6 +30,11 @@ def chunked_f(x, label, compiled=False):
     out.backward()
     return out
 
+def chunked_f_module(x, label, compiled=False):
+    out = ChunkedCE.apply(x.view(-1, D), m, m_a, m_b, r, label.view(-1), compiled)
+    out.backward()
+    return out
+
 def bench(f, name=None, iters=100, warmup=5, display=True, profile=False, profile_mem=False):
     import time
     from triton.testing import do_bench
@@ -63,6 +68,7 @@ bench(lambda: f(x, label), name='eager (non-chunked)')
 bench(lambda: chunked_f(x, label, compiled=False), name='eager (chunked)')
 bench(lambda: opt_f(x, label), name='compile (non-chunked)')
 bench(lambda: chunked_f(x, label, compiled=True), name='compile (chunked)')
+bench(lambda: chunked_f_module(x, label, compiled=True), name='compile (chunked module)')
 
 """
 liger lce: 128.683ms

@@ -298,23 +298,30 @@ class LigerFusedLinearCrossEntropyFunction(torch.autograd.Function):
 
 class ChunkedCE(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, _input, weight, weight_a, weight_b, r, target, compiled=True, CHUNK_SIZE=CHUNK_SIZE):
+    def forward(ctx, _input, m, m_a, m_b, r, target, compiled=True, CHUNK_SIZE=CHUNK_SIZE):
         
+        is_module = False
+        is_deepspeed = False
+        if isinstance(m, nn.Module):
+            weight = m.weight
+            weight_a = m_a.weight
+            weight_b = m_b.weight
+            is_module = True
+        else:
+            weight = m
+            weight_a = m_a
+            weight_b = m_b
+            
         if hasattr(weight, 'ds_param_type'):
             gather_weight = deepspeed.zero.GatheredParameters(weight)
+            gather_weight_a = deepspeed.zero.GatheredParameters(weight_a)
+            gather_weight_b = deepspeed.zero.GatheredParameters(weight_b)
+            is_deepspeed = True
         else:
             gather_weight = nullcontext()
-
-        if hasattr(weight_a, 'ds_param_type'):
-            gather_weight_a = deepspeed.zero.GatheredParameters(weight_a)
-        else:
             gather_weight_a = nullcontext()
-        
-        if hasattr(weight_b, 'ds_param_type'):
-            gather_weight_b = deepspeed.zero.GatheredParameters(weight_b)
-        else:
             gather_weight_b = nullcontext()
-
+        
         with gather_weight, gather_weight_a, gather_weight_b:
 
             def compute_loss(input_chunk, weight, weight_a, weight_b, r, target):
@@ -354,9 +361,28 @@ class ChunkedCE(torch.autograd.Function):
                 grad_weight_a/chunks,
                 grad_weight_b/chunks,
             )
+            ctx.is_module = is_module
+            ctx.is_deepspeed = is_deepspeed
+            if ctx.is_module:
+                ctx.m_a = m_a
+                ctx.m_b = m_b
             return loss_acc / chunks
 
     @staticmethod
     def backward(ctx, grad_output):
         (grad_input, grad_weight_a, grad_weight_b) = ctx.saved_tensors
-        return (grad_input, None, grad_weight_a, grad_weight_b, None, None, None, None)
+        if ctx.is_module:
+            if ctx.is_deepspeed:
+                gather_weight_a = deepspeed.zero.GatheredParameters(ctx.m_a.weight)
+                gather_weight_b = deepspeed.zero.GatheredParameters(ctx.m_b.weight)
+            else:
+                gather_weight_a = nullcontext()
+                gather_weight_b = nullcontext()
+
+            with gather_weight_a, gather_weight_b:
+                ctx.m_a.weight.grad = grad_weight_a
+                ctx.m_b.weight.grad = grad_weight_b
+
+            return (grad_input, None, None, None, None, None, None, None)
+        else:
+            return (grad_input, None, grad_weight_a, grad_weight_b, None, None, None, None)
