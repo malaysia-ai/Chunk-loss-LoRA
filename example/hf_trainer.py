@@ -59,7 +59,7 @@ from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
 from transformers import Qwen2ForCausalLM
 from peft import LoraConfig, get_peft_model
-from chunk_loss_lora.ce import ChunkedCE
+from chunk_loss_lora.ce import ChunkedCE, LigerFusedLinearCrossEntropyFunction
 
 require_version(
     "datasets>=1.8.0",
@@ -363,7 +363,7 @@ torchrun \
 --rdzv-endpoint=localhost:29501 \
 -m hf_trainer \
 --deepspeed ds_config_zero3.json \
---model_name_or_path Qwen/Qwen2.5-0.5B-Instruct \
+--model_name_or_path Qwen/Qwen2.5-7B-Instruct \
 --per_device_train_batch_size 1 \
 --gradient_accumulation_steps 1 \
 --output_dir test \
