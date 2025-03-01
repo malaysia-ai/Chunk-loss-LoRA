@@ -11,7 +11,6 @@ except:
     deepspeed = None
 
 CHUNK_SIZE = int(os.environ.get('CHUNK_SIZE', '32'))
-ce = nn.CrossEntropyLoss()
 
 @triton.jit
 def liger_cross_entropy_kernel(
@@ -299,7 +298,13 @@ class LigerFusedLinearCrossEntropyFunction(torch.autograd.Function):
 
 class ChunkedCE(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, _input, m, m_a, m_b, r, target, compiled=True, CHUNK_SIZE=CHUNK_SIZE):
+    def forward(
+        ctx, _input, m, m_a, m_b, r, target, 
+        compiled=True, 
+        CHUNK_SIZE=CHUNK_SIZE, 
+        ignore_index=-100,
+    ):
+        ce = nn.CrossEntropyLoss(ignore_index=ignore_index, reduction = 'sum')
         
         is_module = False
         is_deepspeed = False
@@ -340,6 +345,7 @@ class ChunkedCE(torch.autograd.Function):
             loss_acc = torch.zeros((), device=_input.device)
 
             chunks = max(_input.shape[0] // CHUNK_SIZE, 1)
+            total_n_non_ignore = (target != ignore_index).sum()
             def accumulate_chunk(input_chunk, target_chunk):
                 (chunk_grad_input, chunk_grad_weight_a, chunk_grad_weight_b), chunk_loss = torch.func.grad_and_value(compute_loss, argnums=(0,2,3))(
                     input_chunk, weight, weight_a, weight_b, r, target_chunk
@@ -358,16 +364,16 @@ class ChunkedCE(torch.autograd.Function):
                 grad_inputs.append(accumulate_chunk(input_chunk, target_chunk))
             
             ctx.save_for_backward(
-                torch.cat(grad_inputs, dim=0) / chunks,
-                grad_weight_a / chunks,
-                grad_weight_b / chunks,
+                torch.cat(grad_inputs, dim=0) / total_n_non_ignore,
+                grad_weight_a / total_n_non_ignore,
+                grad_weight_b / total_n_non_ignore,
             )
             ctx.is_module = is_module
             ctx.is_deepspeed = is_deepspeed
             if ctx.is_module:
                 ctx.m_a = m_a
                 ctx.m_b = m_b
-            return loss_acc / chunks
+            return loss_acc / total_n_non_ignore
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -380,6 +386,6 @@ class ChunkedCE(torch.autograd.Function):
                 ctx.m_a.weight.grad = grad_weight_a
                 ctx.m_b.weight.grad = grad_weight_b
 
-            return (grad_input, None, None, None, None, None, None, None)
+            return (grad_input, None, None, None, None, None, None, None, None)
         else:
-            return (grad_input, None, grad_weight_a, grad_weight_b, None, None, None, None)
+            return (grad_input, None, grad_weight_a, grad_weight_b, None, None, None, None, None)
