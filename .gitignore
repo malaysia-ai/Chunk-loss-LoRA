@@ -4,3 +4,4 @@ lce_benchmark.py
 *__pycache__
 chunk_loss_lora.egg-info
 example/test
+*wandb

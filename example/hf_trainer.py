@@ -47,9 +47,6 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     TrainingArguments,
-    default_data_collator,
-    DataCollatorWithPadding,
-    DataCollatorForLanguageModeling,
     is_torch_tpu_available,
     set_seed,
 )
@@ -182,12 +179,13 @@ class Model(Qwen2ForCausalLM):
             output_hidden_states = True,
         )
         x = super_out.hidden_states[-1][:,:-1]
-        x_ = x.view(-1, x.shape[-1])
-        labels = labels[:,1:].view(-1)
+        x_ = x.reshape(-1, x.shape[-1])
+        labels = labels[:,1:].reshape(-1)
         m = self.lm_head
         m_a = self.lm_head.lora_A.default
         m_b = self.lm_head.lora_B.default
-        loss = ChunkedCE.apply(x_, m.weight, m_a.weight, m_b.weight, 2.0, labels, True)
+        r = self.lm_head.scaling['default']
+        loss = ChunkedCE.apply(x_, m, m_a, m_b, r, labels, True)
         return {'loss': loss}
 
 def main():
@@ -270,13 +268,12 @@ def main():
             self.dataset = load_dataset('openai/gsm8k', 'main')['train']
 
         def __getitem__(self, idx):
-            data = self.dataset[0]
+            data = self.dataset[idx]
             t = tokenizer.apply_chat_template([
                 {'role': 'user', 'content': data['question']},
-                {'role': 'assistant', 'content': data['question']}
+                {'role': 'assistant', 'content': data['answer']}
             ], tokenize = False)
             t = tokenizer(t)
-            t['labels'] = t['input_ids'][:]
             return t
 
         def __len__(self):
@@ -310,7 +307,8 @@ def main():
         r=model_args.rank,
         bias="none",
         task_type="CAUSAL_LM",
-        target_modules=["lm_head"],
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                        "gate_proj", "up_proj", "down_proj", "lm_head"],
     )
 
     if hasattr(model, "enable_input_require_grads"):
@@ -322,6 +320,13 @@ def main():
         model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
 
     model = get_peft_model(model, peft_config)
+    
+    def collator(batch):
+        batch = [b for b in batch if b is not None]
+        input_ids = {'input_ids': [b['input_ids'] for b in batch]}
+        input_ids = tokenizer.pad(input_ids, return_tensors = 'pt')
+        input_ids['labels'] = input_ids['input_ids'].clone()
+        return input_ids
 
     trainer = Trainer(
         model=model,
@@ -329,7 +334,7 @@ def main():
         train_dataset=dataset,
         eval_dataset=None,
         tokenizer=tokenizer,
-        data_collator=default_data_collator,
+        data_collator=collator,
         compute_metrics=None,
         preprocess_logits_for_metrics=None,
     )
@@ -355,7 +360,7 @@ if __name__ == "__main__":
     main()
 
 """
-WANDB_DISABLED="true" \
+WANDB_PROJECT="test-chunk-loss" \
 CUDA_VISIBLE_DEVICES="2" \
 TORCH_DISTRIBUTED_DEBUG="info" \
 torchrun \
@@ -364,8 +369,8 @@ torchrun \
 -m hf_trainer \
 --deepspeed ds_config_zero3.json \
 --model_name_or_path Qwen/Qwen2.5-7B-Instruct \
---per_device_train_batch_size 1 \
---gradient_accumulation_steps 1 \
+--per_device_train_batch_size 3 \
+--gradient_accumulation_steps 2 \
 --output_dir test \
 --bf16 --do_train --do_eval false --num_train_epochs 1 \
 --logging_steps 1 \
