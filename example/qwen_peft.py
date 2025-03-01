@@ -49,5 +49,5 @@ for i in range(100):
     grad_norm = torch.nn.utils.clip_grad_norm_(trainable_parameters, 1.0)
     trainer.step()
 
-    print(i, loss)
+    print(i, loss, grad_norm)
 

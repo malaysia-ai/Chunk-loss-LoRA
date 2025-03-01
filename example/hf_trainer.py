@@ -307,8 +307,7 @@ def main():
         r=model_args.rank,
         bias="none",
         task_type="CAUSAL_LM",
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                        "gate_proj", "up_proj", "down_proj", "lm_head"],
+        target_modules=["lm_head"],
     )
 
     if hasattr(model, "enable_input_require_grads"):
@@ -326,6 +325,7 @@ def main():
         input_ids = {'input_ids': [b['input_ids'] for b in batch]}
         input_ids = tokenizer.pad(input_ids, return_tensors = 'pt')
         input_ids['labels'] = input_ids['input_ids'].clone()
+        input_ids['labels'][input_ids['labels'] == tokenizer.pad_token_id] = -100
         return input_ids
 
     trainer = Trainer(
@@ -368,7 +368,7 @@ torchrun \
 --rdzv-endpoint=localhost:29501 \
 -m hf_trainer \
 --deepspeed ds_config_zero3.json \
---model_name_or_path Qwen/Qwen2.5-7B-Instruct \
+--model_name_or_path Qwen/Qwen2.5-0.5B-Instruct \
 --per_device_train_batch_size 3 \
 --gradient_accumulation_steps 2 \
 --output_dir test \

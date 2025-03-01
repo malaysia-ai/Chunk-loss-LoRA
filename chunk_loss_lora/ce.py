@@ -379,12 +379,13 @@ class ChunkedCE(torch.autograd.Function):
     def backward(ctx, grad_output):
         (grad_input, grad_weight_a, grad_weight_b) = ctx.saved_tensors
         if ctx.is_module:
+            ctx.m_a.weight.grad = grad_weight_a
+            ctx.m_b.weight.grad = grad_weight_b
             if ctx.is_deepspeed:
                 safe_set_full_grad(ctx.m_a.weight, grad_weight_a)
                 safe_set_full_grad(ctx.m_b.weight, grad_weight_b)
-            else:
-                ctx.m_a.weight.grad = grad_weight_a
-                ctx.m_b.weight.grad = grad_weight_b
+                ctx.m_a.weight._z3_optimizer.reduce_ready_partitions_and_remove_grads(ctx.m_a.weight)
+                ctx.m_b.weight._z3_optimizer.reduce_ready_partitions_and_remove_grads(ctx.m_b.weight)
 
             return (grad_input, None, None, None, None, None, None, None, None)
         else:

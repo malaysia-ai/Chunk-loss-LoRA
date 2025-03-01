@@ -43,6 +43,7 @@ ds_config = {
         "stage3_param_persistence_threshold": 10 * model_hidden_size
     },
     "steps_per_print": 1,
+    "gradient_accumulation_steps": 1,
     "gradient_clipping": 1.0,
     "train_batch_size": 1,
     "train_micro_batch_size_per_gpu": 1,
@@ -78,7 +79,7 @@ class Model(Qwen2ForCausalLM):
         m = self.lm_head
         m_a = self.lm_head.lora_A.default
         m_b = self.lm_head.lora_B.default
-        loss = ChunkedCE.apply(x_, m.weight, m_a.weight, m_b.weight, r, labels, True)
+        loss = ChunkedCE.apply(x_, m, m_a, m_b, r, labels, True)
         return {'loss': loss}
 
 model = Model.from_pretrained(
