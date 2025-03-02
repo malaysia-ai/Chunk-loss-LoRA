@@ -360,11 +360,12 @@ if __name__ == "__main__":
     main()
 
 """
-WANDB_PROJECT="test-chunk-loss" \
-CUDA_VISIBLE_DEVICES="2" \
+# Qwen/Qwen2.5-0.5B-Instruct
+huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct
+WANDB_PROJECT="test-chunk-loss-2gpus" \
 TORCH_DISTRIBUTED_DEBUG="info" \
 torchrun \
---nproc_per_node 1 \
+--nproc_per_node 2 \
 --rdzv-endpoint=localhost:29501 \
 -m hf_trainer \
 --deepspeed ds_config_zero3.json \
@@ -376,7 +377,61 @@ torchrun \
 --logging_steps 1 \
 --learning_rate 2e-5 \
 --weight_decay 0.01 \
---save_steps 100 \
+--save_steps 10000 \
+--save_total_limit 3 \
+--gradient_checkpointing true \
+--neftune_noise_alpha 5.0 \
+--torch_dtype bfloat16 \
+--rank 64 \
+--ddp_find_unused_parameters false
+"""
+
+"""
+# Qwen/Qwen2.5-7B-Instruct
+huggingface-cli download Qwen/Qwen2.5-7B-Instruct
+WANDB_PROJECT="test-chunk-loss-2gpus-7b" \
+TORCH_DISTRIBUTED_DEBUG="info" \
+torchrun \
+--nproc_per_node 2 \
+--rdzv-endpoint=localhost:29501 \
+-m hf_trainer \
+--deepspeed ds_config_zero3.json \
+--model_name_or_path Qwen/Qwen2.5-7B-Instruct \
+--per_device_train_batch_size 3 \
+--gradient_accumulation_steps 2 \
+--output_dir test \
+--bf16 --do_train --do_eval false --num_train_epochs 1 \
+--logging_steps 1 \
+--learning_rate 2e-5 \
+--weight_decay 0.01 \
+--save_steps 10000 \
+--save_total_limit 3 \
+--gradient_checkpointing true \
+--neftune_noise_alpha 5.0 \
+--torch_dtype bfloat16 \
+--rank 64 \
+--ddp_find_unused_parameters false
+"""
+
+"""
+# Qwen/Qwen2.5-14B-Instruct
+huggingface-cli download Qwen/Qwen2.5-14B-Instruct
+WANDB_PROJECT="test-chunk-loss-2gpus-14b" \
+TORCH_DISTRIBUTED_DEBUG="info" \
+torchrun \
+--nproc_per_node 2 \
+--rdzv-endpoint=localhost:29501 \
+-m hf_trainer \
+--deepspeed ds_config_zero3.json \
+--model_name_or_path Qwen/Qwen2.5-14B-Instruct \
+--per_device_train_batch_size 3 \
+--gradient_accumulation_steps 2 \
+--output_dir test \
+--bf16 --do_train --do_eval false --num_train_epochs 1 \
+--logging_steps 1 \
+--learning_rate 2e-5 \
+--weight_decay 0.01 \
+--save_steps 10000 \
 --save_total_limit 3 \
 --gradient_checkpointing true \
 --neftune_noise_alpha 5.0 \

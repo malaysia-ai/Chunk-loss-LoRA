@@ -8,11 +8,19 @@ Fused kernel chunk loss that include LoRA to reduce memory, support DeepSpeed Ze
 
 ## Examples
 
+All examples tested using DeepSpeed 0.15.4 and Transformers 4.47.1,
+
 1. [example/ds3_qwen_peft.py](example/ds3_qwen_peft.py), simple DeepSpeed ZeRO3 training loop.
 2. [example/hf_trainer.py](example/hf_trainer.py), train using HuggingFace Trainer.
 3. [Example/qwen_peft.py](example/qwen_peft.py), simple training loop without DeepSpeed.
 
 Currently only [chunk_loss_lora.ce.ChunkedCE](chunk_loss_lora/ce.py) been optimized for weird cases DeepSpeed ZeRO3.
+
+### Wandb
+
+1. 2 RTX 4090, Qwen/Qwen2.5-0.5B-Instruct, https://wandb.ai/huseinzol05/test-chunk-loss-2gpus
+2. 2 RTX 4090, Qwen/Qwen2.5-7B-Instruct, https://wandb.ai/huseinzol05/test-chunk-loss-2gpus-7b
+3. 2 RTX 4090, Qwen/Qwen2.5-14B-Instruct, https://wandb.ai/huseinzol05/test-chunk-loss-2gpus-14b
 
 ## Benchmarks
 
