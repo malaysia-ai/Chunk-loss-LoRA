@@ -17,3 +17,4 @@ def free_param(param) -> None:
 partition_parameters.free_param = free_param
 
 from .ce import *
+from .linear import *
