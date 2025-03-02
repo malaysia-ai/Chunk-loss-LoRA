@@ -167,27 +167,6 @@ class ModelArguments:
                 "--config_overrides can't be used in combination with --config_name or --model_name_or_path"
             )
 
-class Model(Qwen2ForCausalLM):
-    def __init__(self, config):
-        super().__init__(config)
-        
-    def forward(self, input_ids, attention_mask, labels = None, **kwargs):
-        print(input_ids.shape, attention_mask.shape)
-        super_out = super().forward(
-            input_ids = input_ids,
-            attention_mask = attention_mask,
-            output_hidden_states = True,
-        )
-        x = super_out.hidden_states[-1][:,:-1]
-        x_ = x.reshape(-1, x.shape[-1])
-        labels = labels[:,1:].reshape(-1)
-        m = self.lm_head
-        m_a = self.lm_head.lora_A.default
-        m_b = self.lm_head.lora_B.default
-        r = self.lm_head.scaling['default']
-        loss = ChunkedCE.apply(x_, m.weight, m_a.weight, m_b.weight, r, labels, True)
-        return {'loss': loss}
-
 def main():
 
     parser = HfArgumentParser((ModelArguments, TrainingArguments))
@@ -287,7 +266,7 @@ def main():
         else getattr(torch, model_args.torch_dtype)
     )
 
-    model = Model.from_pretrained(
+    model = Qwen2ForCausalLM.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
@@ -360,68 +339,14 @@ if __name__ == "__main__":
     main()
 
 """
-# Qwen/Qwen2.5-0.5B-Instruct
-huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct
-WANDB_PROJECT="test-chunk-loss-2gpus" \
-TORCH_DISTRIBUTED_DEBUG="info" \
-torchrun \
---nproc_per_node 2 \
---rdzv-endpoint=localhost:29501 \
--m hf_trainer \
---deepspeed ds_config_zero3.json \
---model_name_or_path Qwen/Qwen2.5-0.5B-Instruct \
---per_device_train_batch_size 3 \
---gradient_accumulation_steps 2 \
---output_dir test \
---bf16 --do_train --do_eval false --num_train_epochs 1 \
---logging_steps 1 \
---learning_rate 2e-5 \
---weight_decay 0.01 \
---save_steps 10000 \
---save_total_limit 3 \
---gradient_checkpointing true \
---neftune_noise_alpha 5.0 \
---torch_dtype bfloat16 \
---rank 64 \
---ddp_find_unused_parameters false
-"""
-
-"""
-# Qwen/Qwen2.5-7B-Instruct
-huggingface-cli download Qwen/Qwen2.5-7B-Instruct
-WANDB_PROJECT="test-chunk-loss-2gpus-7b" \
-TORCH_DISTRIBUTED_DEBUG="info" \
-torchrun \
---nproc_per_node 2 \
---rdzv-endpoint=localhost:29501 \
--m hf_trainer \
---deepspeed ds_config_zero3.json \
---model_name_or_path Qwen/Qwen2.5-7B-Instruct \
---per_device_train_batch_size 3 \
---gradient_accumulation_steps 2 \
---output_dir test \
---bf16 --do_train --do_eval false --num_train_epochs 1 \
---logging_steps 1 \
---learning_rate 2e-5 \
---weight_decay 0.01 \
---save_steps 10000 \
---save_total_limit 3 \
---gradient_checkpointing true \
---neftune_noise_alpha 5.0 \
---torch_dtype bfloat16 \
---rank 64 \
---ddp_find_unused_parameters false
-"""
-
-"""
 # Qwen/Qwen2.5-14B-Instruct
 huggingface-cli download Qwen/Qwen2.5-14B-Instruct
-WANDB_PROJECT="test-chunk-loss-2gpus-14b" \
+WANDB_PROJECT="test-chunk-loss-2gpus-14b-nonchunk" \
 TORCH_DISTRIBUTED_DEBUG="info" \
 torchrun \
 --nproc_per_node 2 \
 --rdzv-endpoint=localhost:29501 \
--m hf_trainer \
+-m hf_trainer_nonchunk \
 --deepspeed ds_config_zero3.json \
 --model_name_or_path Qwen/Qwen2.5-14B-Instruct \
 --per_device_train_batch_size 4 \
